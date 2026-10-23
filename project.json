@@ -13,7 +13,8 @@
         "cwd": "."
       },
       "cache": true,
-      "inputs": ["default", "^default"]
+      "inputs": ["default", "^default"],
+      "outputs": ["{projectRoot}/dist"]
     },
     "typecheck": {
       "executor": "nx:run-commands",
@@ -32,23 +33,6 @@
       },
       "cache": true,
       "inputs": ["default", "^default"]
-    },
-    "lint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "tsc --noEmit",
-        "cwd": "."
-      },
-      "cache": true,
-      "inputs": ["default", "^default"]
-    },
-    "format": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "prettier --write .",
-        "cwd": "."
-      },
-      "cache": false
     }
   }
 }

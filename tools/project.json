@@ -1,0 +1,14 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "tools",
+  "sourceRoot": "tools",
+  "targets": {
+    "release": {
+      "executor": "@nx-devkit/release:publish",
+      "options": {
+        "packagePath": ".",
+        "packageName": "gh-debt"
+      }
+    }
+  }
+}

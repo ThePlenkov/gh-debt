@@ -1,0 +1,66 @@
+name: Release
+
+concurrency:
+  group: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (x.y.z, or patch|minor|major vs npm latest)'
+        required: false
+        default: 'patch'
+        type: string
+      dry-run:
+        description: 'Dry run (verify only — no tag, publish, or release)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: lts/*
+          check-latest: true
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npx nx run-many -t build
+
+      - name: Typecheck
+        run: npx nx run-many -t typecheck
+
+      - name: Test
+        run: npx nx run-many -t test
+
+      # Provenance requires OIDC, so no NODE_AUTH_TOKEN: with a token in the
+      # environment npm skips the OIDC flow and `--provenance` fails.
+      - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx nx run tools:release \
+            --version="${{ inputs.version }}" \
+            --dryRun="${{ inputs.dry-run }}"

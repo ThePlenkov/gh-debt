@@ -4,20 +4,22 @@
   "targetDefaults": {
     "build": {
       "cache": true,
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "typecheck": {
       "cache": true
     },
     "test": {
       "cache": true
-    },
-    "lint": {
-      "cache": true
-    },
-    "format": {
-      "cache": true
     }
   },
-  "includeRoot": true
+  "includeRoot": true,
+  "plugins": [
+    {
+      "plugin": "@nx-devkit/release",
+      "options": {}
+    }
+  ]
 }
