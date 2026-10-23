@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+/**
+ * gh-debt executable for GitHub CLI extension.
+ * Delegates to the built bundle at dist/cli.mjs.
+ */
+
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const bundlePath = join(__dirname, 'dist', 'cli.mjs')
+
+// Use dynamic import to load the compiled ESM bundle
+await import(bundlePath)
