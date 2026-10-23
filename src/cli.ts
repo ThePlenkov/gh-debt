@@ -54,7 +54,7 @@ Commands:
 
 Flags:
   --limit N     Maximum items to fetch (default: 30)
-  --stale DAYS  Only show items updated within the last N days
+  --stale DAYS  Only show items not updated in the last N days
   --repo OWNER/REPO  Scope to a specific repository
   --format FORMAT  Output format: table | json | md
   --days N      Days for stale filter (used with 'stale' command)
@@ -125,7 +125,7 @@ switch (command) {
   case 'stats': {
     try {
       const items = fetchAllDebt({ limit }).map(toDebtItem)
-      console.log(renderSummary(items))
+      console.log(renderSummary(items, format))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('gh api graphql failed') || msg.includes('GraphQL errors')) {

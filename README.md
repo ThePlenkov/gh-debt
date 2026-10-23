@@ -8,10 +8,16 @@ A [GitHub CLI](https://cli.github.com/) extension for tracking and managing tech
 gh extension install ThePlenkov/gh-debt
 ```
 
-Or build from source:
+The bundle in `dist/` is committed, so the extension runs as soon as it is
+installed — no build step and no dependencies at runtime.
+
+To work on the extension from a clone:
 
 ```bash
-gh extension install ./gh-debt
+git clone https://github.com/ThePlenkov/gh-debt
+cd gh-debt
+npm ci
+npm run build
 ```
 
 ## Commands

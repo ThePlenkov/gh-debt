@@ -55,35 +55,66 @@ export function renderJSON(items: DebtItem[]): string {
 }
 
 /**
- * Render a summary of debt items.
+ * Aggregate debt items into the summary shape.
  */
-export function renderSummary(items: DebtItem[]): string {
-  const prs = items.filter((i) => i.type === 'pr')
-  const issues = items.filter((i) => i.type === 'issue')
-
+function summarize(items: DebtItem[]): DebtSummary {
   const byRepo: Record<string, number> = {}
   for (const item of items) {
     byRepo[item.repo] = (byRepo[item.repo] || 0) + 1
   }
 
-  const sortedByRepo = Object.entries(byRepo).sort(([, a], [, b]) => b - a)
+  const sorted = [...items].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+
+  return {
+    total: items.length,
+    prs: items.filter((i) => i.type === 'pr').length,
+    issues: items.filter((i) => i.type === 'issue').length,
+    byRepo,
+    oldestUpdated: sorted[0]?.updatedAt ?? '',
+    newestUpdated: sorted[sorted.length - 1]?.updatedAt ?? '',
+  }
+}
+
+/**
+ * Render a summary of debt items. `format` mirrors the global --format flag;
+ * the default is the human-readable view.
+ */
+export function renderSummary(
+  items: DebtItem[],
+  format: 'table' | 'json' | 'md' = 'table',
+): string {
+  const summary = summarize(items)
+
+  if (format === 'json') return JSON.stringify(summary, null, 2)
+
+  const byRepo = Object.entries(summary.byRepo).sort(([, a], [, b]) => b - a)
+
+  if (format === 'md') {
+    let output = '| Repo | Count |\n|------|-------|\n'
+    for (const [repo, count] of byRepo) {
+      output += `| ${repo} | ${count} |\n`
+    }
+    output += `\nTotal: ${summary.total} (PRs ${summary.prs}, issues ${summary.issues})\n`
+    return output
+  }
 
   let output = `\n📊 GitHub Debt Summary\n`
   output += `=========================\n\n`
-  output += `Total items:    ${items.length}\n`
-  output += `PRs to review:  ${prs.length}\n`
-  output += `Issues to fix:  ${issues.length}\n\n`
+  output += `Total items:    ${summary.total}\n`
+  output += `PRs to review:  ${summary.prs}\n`
+  output += `Issues to fix:  ${summary.issues}\n\n`
 
-  if (sortedByRepo.length > 0) {
+  if (byRepo.length > 0) {
     output += 'By repository:\n'
-    for (const [repo, count] of sortedByRepo) {
+    for (const [repo, count] of byRepo) {
       output += `  ${repo.padEnd(45)} ${count}\n`
     }
   }
 
-  if (items.length > 0) {
-    const oldest = [...items].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))[0]
-    const newest = [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+  const sorted = [...items].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+  if (sorted.length > 0) {
+    const oldest = sorted[0]
+    const newest = sorted[sorted.length - 1]
     output += `\nOldest item: ${oldest.repo}#${oldest.number} (updated ${oldest.updatedAt})\n`
     output += `Newest item: ${newest.repo}#${newest.number} (updated ${newest.updatedAt})\n`
   }

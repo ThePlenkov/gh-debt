@@ -12,6 +12,7 @@ export declare function renderMarkdown(items: DebtItem[]): string;
  */
 export declare function renderJSON(items: DebtItem[]): string;
 /**
- * Render a summary of debt items.
+ * Render a summary of debt items. `format` mirrors the global --format flag;
+ * the default is the human-readable view.
  */
-export declare function renderSummary(items: DebtItem[]): string;
+export declare function renderSummary(items: DebtItem[], format?: 'table' | 'json' | 'md'): string;
