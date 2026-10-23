@@ -236,10 +236,14 @@ export function fetchAuthoredPRs(opts: DebtQueryOptions): GitHubItem[] {
 
 /**
  * Fetch all debt — PRs needing your review + issues assigned to you.
+ *
+ * `limit` caps the combined result, so it is split between the two queries
+ * rather than applied to each (which would return up to twice as many items).
  */
 export function fetchAllDebt(opts: DebtQueryOptions = {}): GitHubItem[] {
-  const prs = fetchReviewerPRs(opts)
-  const issues = fetchAssignedIssues(opts)
+  const limit = opts.limit ?? 30
+  const prs = fetchReviewerPRs({ ...opts, limit: Math.ceil(limit / 2) })
+  const issues = fetchAssignedIssues({ ...opts, limit: Math.floor(limit / 2) })
   return [...prs, ...issues]
 }
 

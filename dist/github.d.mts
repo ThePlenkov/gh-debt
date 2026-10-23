@@ -33,6 +33,9 @@ export declare function fetchAssignedIssues(opts: DebtQueryOptions): GitHubItem[
 export declare function fetchAuthoredPRs(opts: DebtQueryOptions): GitHubItem[];
 /**
  * Fetch all debt — PRs needing your review + issues assigned to you.
+ *
+ * `limit` caps the combined result, so it is split between the two queries
+ * rather than applied to each (which would return up to twice as many items).
  */
 export declare function fetchAllDebt(opts?: DebtQueryOptions): GitHubItem[];
 /**
