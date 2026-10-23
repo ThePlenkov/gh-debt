@@ -1,0 +1,54 @@
+{
+  "name": "gh-debt",
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "root": ".",
+  "sourceRoot": "src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "tsdown",
+        "cwd": "."
+      },
+      "cache": true,
+      "inputs": ["default", "^default"]
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit",
+        "cwd": "."
+      },
+      "cache": true,
+      "inputs": ["default", "^default"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx --test src/**/*.test.ts",
+        "cwd": "."
+      },
+      "cache": true,
+      "inputs": ["default", "^default"]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit",
+        "cwd": "."
+      },
+      "cache": true,
+      "inputs": ["default", "^default"]
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prettier --write .",
+        "cwd": "."
+      },
+      "cache": false
+    }
+  }
+}
