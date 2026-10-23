@@ -4,7 +4,7 @@
   "description": "GitHub CLI extension for tracking and managing technical debt — PRs awaiting review, assigned issues, and stale items across all your repositories, prioritized by date",
   "license": "MIT",
   "type": "module",
-  "packageManager": "bun@1.4.3",
+  "packageManager": "npm@11.20.0",
   "bin": {
     "gh-debt": "dist/cli.mjs"
   },
