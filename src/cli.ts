@@ -20,7 +20,8 @@ import {
   toDebtItem,
 } from './github.ts'
 import { renderTable, renderMarkdown, renderJSON, renderSummary } from './formatters.ts'
-import type { DebtItem, GitHubItem } from './types.ts'
+import type { DebtItem } from './types.ts'
+import type { GitHubItem } from './github.ts'
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),

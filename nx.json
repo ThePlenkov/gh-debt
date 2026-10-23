@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "name": "gh-debt",
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "typecheck": {
+      "cache": true
+    },
+    "test": {
+      "cache": true
+    }
+  },
+  "includeRoot": true,
+  "plugins": [
+    {
+      "plugin": "@nx-devkit/release",
+      "options": {}
+    }
+  ]
+}
