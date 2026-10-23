@@ -8,7 +8,19 @@
       "options": {
         "packagePath": ".",
         "packageName": "gh-debt"
-      }
+      },
+      "configurations": {
+        "patch": {
+          "version": "patch"
+        },
+        "minor": {
+          "version": "minor"
+        },
+        "major": {
+          "version": "major"
+        }
+      },
+      "defaultConfiguration": "patch"
     }
   }
 }

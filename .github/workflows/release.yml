@@ -6,11 +6,15 @@ concurrency:
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (x.y.z, or patch|minor|major vs npm latest)'
+      bump:
+        description: 'Version bump (applied on top of the version in package.json)'
         required: false
         default: 'patch'
-        type: string
+        type: choice
+        options:
+          - 'patch'
+          - 'minor'
+          - 'major'
       dry-run:
         description: 'Dry run (verify only — no tag, publish, or release)'
         required: false
@@ -55,12 +59,17 @@ jobs:
       - name: Test
         run: npx nx run-many -t test
 
-      # Provenance requires OIDC, so no NODE_AUTH_TOKEN: with a token in the
-      # environment npm skips the OIDC flow and `--provenance` fails.
+      # Provenance requires the OIDC flow, so there is no NODE_AUTH_TOKEN:
+      # with a token in the environment npm skips OIDC and --provenance fails.
+      #
+      # The bump kind goes through --configuration, not --version: `--version`
+      # is a reserved nx CLI flag (it prints the nx version and exits), so the
+      # executor's `version` option never receives it. For an explicit x.y.z,
+      # set `version` in tools/project.json instead.
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npx nx run tools:release \
-            --version="${{ inputs.version }}" \
+            --configuration="${{ inputs.bump }}" \
             --dryRun="${{ inputs.dry-run }}"
