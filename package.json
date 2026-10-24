@@ -45,6 +45,8 @@
   },
   "devDependencies": {
     "@nx-devkit/release": "^0.1.0",
+    "@nx-devkit/sverka": "^0.0.1",
+    "@sverka/workflow": "^0.2.28",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "citty": "^0.2.2",

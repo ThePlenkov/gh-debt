@@ -20,6 +20,10 @@
     {
       "plugin": "@nx-devkit/release",
       "options": {}
+    },
+    {
+      "options": {},
+      "plugin": "@nx-devkit/sverka"
     }
   ]
 }
