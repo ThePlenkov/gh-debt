@@ -33,10 +33,6 @@ export declare function fetchAssignedIssues(opts?: DebtQueryOptions): GitHubItem
 /** Async counterpart of {@link fetchAssignedIssues}. */
 export declare function fetchAssignedIssuesAsync(opts?: DebtQueryOptions): Promise<GitHubItem[]>;
 /**
- * Query for PRs authored by the user that are awaiting review.
- */
-export declare function fetchAuthoredPRs(opts?: DebtQueryOptions): GitHubItem[];
-/**
  * Fetch all debt — PRs needing your review + issues assigned to you.
  *
  * `limit` caps the combined result, so it is split between the two queries

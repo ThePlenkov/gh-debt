@@ -28,7 +28,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsx --test src/**/*.test.ts",
+        "command": "tsx --test \"src/**/*.test.ts\"",
         "cwd": "."
       },
       "cache": true,

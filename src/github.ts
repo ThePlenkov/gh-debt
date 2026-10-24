@@ -91,23 +91,6 @@ const ISSUE_QUERY = `query($q: String!, $last: Int!) {
   }
 }`
 
-/** Query for PRs authored by the user that are awaiting review. */
-const AUTHORED_QUERY = `query($q: String!, $last: Int!) {
-  search(query: $q, type: ISSUE, last: $last) {
-    nodes {
-      ... on PullRequest {
-        number
-        title
-        repository { nameWithOwner }
-        url
-        updatedAt
-        createdAt
-        state
-      }
-    }
-  }
-}`
-
 /**
  * Format a date for the GraphQL `search:` qualifier — uses ISO date
  * without time for the stale filter.
@@ -218,10 +201,6 @@ function toIssueItem(n: RawIssueNode): GitHubItem {
   }
 }
 
-function toAuthoredItem(n: RawPrNode): GitHubItem {
-  return { ...toPrItem({ ...n, labels: { nodes: [] } }), labels: [] }
-}
-
 function reviewerQualifier(opts: DebtQueryOptions): string {
   let qualifier = 'review-requested:@me is:pull-request state:open'
   if (opts.repo) qualifier += ` repo:${opts.repo}`
@@ -231,13 +210,6 @@ function reviewerQualifier(opts: DebtQueryOptions): string {
 
 function issueQualifier(opts: DebtQueryOptions): string {
   let qualifier = 'assignee:@me is:issue state:open'
-  if (opts.repo) qualifier += ` repo:${opts.repo}`
-  if (opts.staleDays) qualifier += ` updated:<${daysAgoISO(opts.staleDays)}`
-  return qualifier
-}
-
-function authoredQualifier(opts: DebtQueryOptions): string {
-  let qualifier = 'author:@me is:pull-request state:open'
   if (opts.repo) qualifier += ` repo:${opts.repo}`
   if (opts.staleDays) qualifier += ` updated:<${daysAgoISO(opts.staleDays)}`
   return qualifier
@@ -288,18 +260,6 @@ export async function fetchAssignedIssuesAsync(opts: DebtQueryOptions = {}): Pro
     last: limit,
   })
   return usableNodes(data).map(toIssueItem)
-}
-
-/**
- * Query for PRs authored by the user that are awaiting review.
- */
-export function fetchAuthoredPRs(opts: DebtQueryOptions = {}): GitHubItem[] {
-  const { limit = 30 } = opts
-  const data = ghGraphQL<SearchData<RawPrNode>>(AUTHORED_QUERY, {
-    q: authoredQualifier(opts),
-    last: limit,
-  })
-  return usableNodes(data).map(toAuthoredItem)
 }
 
 /**
