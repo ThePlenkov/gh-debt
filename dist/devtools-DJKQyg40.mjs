@@ -1,0 +1,4 @@
+const e=globalThis;e.window||=globalThis,e.self||=globalThis,e.window.__REACT_DEVTOOLS_COMPONENT_FILTERS__=[{type:1,value:7,isEnabled:!0},{type:2,value:`InternalApp`,isEnabled:!0,isValid:!0},{type:2,value:`InternalAppContext`,isEnabled:!0,isValid:!0},{type:2,value:`InternalStdoutContext`,isEnabled:!0,isValid:!0},{type:2,value:`InternalStderrContext`,isEnabled:!0,isValid:!0},{type:2,value:`InternalStdinContext`,isEnabled:!0,isValid:!0},{type:2,value:`InternalFocusContext`,isEnabled:!0,isValid:!0}];var t={initialize(){},connectToDevTools(){}};await(async(e=`ws://localhost:8097`,t=2e3)=>new Promise(n=>{let r=new WebSocket(e),i=setTimeout(()=>{n(!1),r.close()},t);i.unref(),r.addEventListener(`open`,()=>{clearTimeout(i),r.close(),n(!0)}),r.addEventListener(`error`,()=>{clearTimeout(i),n(!1)})}))()?(t.initialize(),t.connectToDevTools()):console.warn(`DEV is set to true, but the React DevTools server is not running. Start it with:
+
+$ npx react-devtools
+`);export{};
