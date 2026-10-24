@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { fit, nextPane, palette, prevPane, truncate } from './theme.ts'
+import { fit, nextView, palette, prevView, truncate } from './theme.ts'
 
 describe('truncate', () => {
   it('leaves short strings alone', () => {
@@ -31,17 +31,17 @@ describe('fit', () => {
   })
 })
 
-describe('pane cycling', () => {
-  it('walks forward through sources, items, detail', () => {
-    assert.equal(nextPane('sources'), 'items')
-    assert.equal(nextPane('items'), 'detail')
-    assert.equal(nextPane('detail'), 'sources')
+describe('navigation stack', () => {
+  it('drills down in order, and stops at the bottom', () => {
+    assert.equal(nextView('sources'), 'list')
+    assert.equal(nextView('list'), 'detail')
+    assert.equal(nextView('detail'), 'detail')
   })
 
-  it('walks backwards', () => {
-    assert.equal(prevPane('sources'), 'detail')
-    assert.equal(prevPane('items'), 'sources')
-    assert.equal(prevPane('detail'), 'items')
+  it('goes back up, and stops at the top', () => {
+    assert.equal(prevView('detail'), 'list')
+    assert.equal(prevView('list'), 'sources')
+    assert.equal(prevView('sources'), 'sources')
   })
 
   it('has a palette entry for every state the UI paints', () => {

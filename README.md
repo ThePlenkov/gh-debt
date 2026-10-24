@@ -27,16 +27,26 @@ gh debt          # on a terminal
 gh debt -i       # explicitly, even if you normally script it
 ```
 
-Three panes: sources on the left, the list in the middle, details on the right.
+Navigation, not a split view. One level is on screen at a time, at full
+width, and you drill down into it and back out:
+
+    Sources  All / PRs / Issues, with counts   →  enter
+    Items    the list, filterable              →  enter
+    Detail   everything about one item
+
+A split layout leaves the middle column too narrow to hold a repo and a
+title at once, which is why the list gets the whole width here. The header
+shows where you are — `Sources › PRs › theplenkov-forks/zed#1` — and the
+footer shows the keys for the current level.
 
 | Key | Action |
 |-----|--------|
-| `1` `2` `3` | All / PRs / Issues |
-| `←` `→` | Cycle sources |
 | `↑` `↓` or `k` `j` | Move the selection |
-| `tab` | Move focus to the next pane |
+| `↵` | Open the current level |
+| `esc` | Back up one level |
+| `1` `2` `3` | Jump straight to All / PRs / Issues |
 | `/` | Filter by repo and title (`esc` clears) |
-| `↵` | Expand the detail pane |
+| `g` `G` | Jump to the first / last item |
 | `b` | Open the item with `gh browse` |
 | `r` | Re-fetch |
 | `q` | Quit |

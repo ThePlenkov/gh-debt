@@ -5,9 +5,8 @@ import type { DebtItem } from '../types.ts'
 
 interface DetailProps {
   item: DebtItem | null
-  focused: boolean
+  /** Full width, including borders and padding. */
   width: number
-  marginLeft?: number
 }
 
 function Field({
@@ -23,31 +22,29 @@ function Field({
 }) {
   return (
     <Box>
-      <Text color={palette.muted}>{`  ${fit(label, 9)}`}</Text>
-      <Text color={color ?? palette.title}>{truncate(value, Math.max(8, inner - 11))}</Text>
+      <Text color={palette.muted}>{`  ${fit(label, 10)}`}</Text>
+      <Text color={color ?? palette.title}>{truncate(value, Math.max(8, inner - 12))}</Text>
     </Box>
   )
 }
 
-/** Right pane: the selected item, drilled down. */
-export function Detail({ item, focused, width, marginLeft = 0 }: DetailProps) {
-  const borderColor = focused ? palette.focus : palette.border
+/** Level 3 of the stack: the selected item, full width. */
+export function Detail({ item, width }: DetailProps) {
   const inner = Math.max(12, width - 4)
 
-  const frame = (
+  return (
     <Box
       width={width}
-      marginLeft={marginLeft}
       borderStyle="round"
-      borderColor={borderColor}
+      borderColor={palette.focus}
       paddingX={1}
       flexDirection="column"
-      flexShrink={0}
     >
-      <Text bold color={focused ? palette.focus : palette.title}>
-        {' '}Detail
+      <Text bold color={palette.focus}>
+        {' '}
+        Detail
       </Text>
-      {!item && <Text color={palette.muted}>select an item ↑/↓</Text>}
+      {!item && <Text color={palette.muted}>nothing selected — esc back</Text>}
 
       {item && (
         <>
@@ -83,6 +80,4 @@ export function Detail({ item, focused, width, marginLeft = 0 }: DetailProps) {
       )}
     </Box>
   )
-
-  return frame
 }

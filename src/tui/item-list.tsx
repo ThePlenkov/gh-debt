@@ -4,46 +4,44 @@ import { palette, fit, truncate } from './theme.ts'
 import type { DebtItem } from '../types.ts'
 
 /** Columns before the title: type, repo, number, age. */
-const LABEL_WIDTH = 5 + 22 + 8 + 5
+const LABEL_WIDTH = 6 + 30 + 8 + 5
 
 interface ItemListProps {
   items: DebtItem[]
   cursor: number
-  focused: boolean
   filter: string
   filtering: boolean
   loading: boolean
   error: string | null
-  /** Total pane width, including borders and padding. */
+  /** Full width, including borders and padding. */
   width: number
-  /** Visible rows. */
+  /** Total height, including borders. */
   height: number
-  marginLeft?: number
 }
 
 function rowLabel(item: DebtItem): string {
   const type = item.type === 'pr' ? 'PR' : 'ISSUE'
-  return `${fit(type, 5)}${fit(item.repo, 22)}${fit(`#${item.number}`, 8)}${fit(item.age, 5)}`
+  return `${fit(type, 6)}${fit(item.repo, 30)}${fit(`#${item.number}`, 8)}${fit(item.age, 5)}`
 }
 
-/** Middle pane: the filterable list, windowed around the cursor. */
+/**
+ * Level 2 of the stack: the items of the current source.
+ *
+ * Full width — the title column is what made the three-pane layout unusable.
+ */
 export function ItemList({
   items,
   cursor,
-  focused,
   filter,
   filtering,
   loading,
   error,
   width,
   height,
-  marginLeft = 0,
 }: ItemListProps) {
-  const borderColor = focused ? palette.focus : palette.border
   const rows = Math.max(1, height - 2)
-  // Borders (2) + paddingX (2) come off the pane width; one leading space
-  // separates the label from the title.
-  const titleColumn = Math.max(8, width - LABEL_WIDTH - 6)
+  // Borders (2) + paddingX (2) + the leading space before the title.
+  const titleColumn = Math.max(8, width - LABEL_WIDTH - 5)
 
   // Keep the cursor inside the visible window.
   const start = Math.max(0, Math.min(cursor - Math.floor(rows / 2), Math.max(0, items.length - rows)))
@@ -52,15 +50,13 @@ export function ItemList({
   return (
     <Box
       width={width}
-      marginLeft={marginLeft}
       borderStyle="round"
-      borderColor={borderColor}
+      borderColor={palette.focus}
       paddingX={1}
       flexDirection="column"
-      flexShrink={0}
     >
       <Box>
-        <Text bold color={focused ? palette.focus : palette.title}>
+        <Text bold color={palette.focus}>
           {' '}Items
         </Text>
         <Box flexGrow={1} justifyContent="flex-end">

@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink'
 import { render } from 'ink'
-import { nextPane, prevPane, palette, truncate } from './theme.ts'
-import { matchesSource, nextSource, prevSource, sourceLabel, type Source } from './source.ts'
+import { palette, truncate, type View } from './theme.ts'
+import { matchesSource, sources, sourceLabel, type Source } from './source.ts'
 import { useDebt } from './use-debt.ts'
+import { Sources } from './sources.tsx'
 import { ItemList } from './item-list.tsx'
-import { Sidebar } from './sidebar.tsx'
 import { Detail } from './detail.tsx'
 import type { DebtItem } from '../types.ts'
 
@@ -21,18 +21,12 @@ export interface TuiOptions {
 
 const TUI_LIMIT = 100
 
-/** Keys shown in the footer, in order. */
-const HINTS: Array<[string, string]> = [
-  ['1/2/3', 'source'],
-  ['←/→', 'cycle'],
-  ['↑/↓', 'move'],
-  ['tab', 'pane'],
-  ['/', 'filter'],
-  ['↵', 'expand'],
-  ['b', 'browse'],
-  ['r', 'refresh'],
-  ['q', 'quit'],
-]
+/** Keys shown in the footer, per level of the stack. */
+const HINTS: Record<View, string> = {
+  sources: '↑/↓ move · enter open · 1/2/3 jump · r refresh · q quit',
+  list: '↑/↓ move · / filter · enter open · b browse · r refresh · esc back · q quit',
+  detail: 'b browse · r refresh · esc back · q quit',
+}
 
 /** Open a URL with gh, which resolves the browser for the platform. */
 function browse(url: string): void {
@@ -47,12 +41,13 @@ function App({ limit = TUI_LIMIT, staleDays, repo }: TuiOptions) {
   const { exit } = useApp()
   const { columns, rows } = useWindowSize()
 
+  // Navigation stack: sources → list → detail. Only one level is on screen.
+  const [view, setView] = useState<View>('sources')
   const [source, setSource] = useState<Source>('all')
+  const [sourceCursor, setSourceCursor] = useState(0)
   const [cursor, setCursor] = useState(0)
   const [filter, setFilter] = useState('')
   const [filtering, setFiltering] = useState(false)
-  const [focus, setFocus] = useState<'sources' | 'items' | 'detail'>('items')
-  const [expanded, setExpanded] = useState(false)
 
   const { items, counts, loading, error, reload } = useDebt(limit, staleDays, repo)
 
@@ -70,12 +65,12 @@ function App({ limit = TUI_LIMIT, staleDays, repo }: TuiOptions) {
 
   const selected: DebtItem | null = filtered[cursor] ?? null
 
-  const changeSource = useCallback((next: Source) => {
+  const openSource = useCallback((next: Source) => {
     setSource(next)
+    setSourceCursor(sources.indexOf(next))
     setCursor(0)
     setFilter('')
-    setExpanded(false)
-    setFocus('items')
+    setView('list')
   }, [])
 
   useInput((input, key) => {
@@ -108,40 +103,10 @@ function App({ limit = TUI_LIMIT, staleDays, repo }: TuiOptions) {
       return
     }
 
-    if (key.tab) {
-      setFocus(key.shift ? prevPane(focus) : nextPane(focus))
-      return
-    }
-    if (key.upArrow || input === 'k') {
-      setFocus('items')
-      setCursor((c) => Math.max(0, c - 1))
-      return
-    }
-    if (key.downArrow || input === 'j') {
-      setFocus('items')
-      setCursor((c) => Math.min(filtered.length - 1, c + 1))
-      return
-    }
-    if (key.leftArrow || input === 'h') {
-      changeSource(prevSource(source))
-      return
-    }
-    if (key.rightArrow || input === 'l') {
-      changeSource(nextSource(source))
-      return
-    }
-    if (input === '/') {
-      setFocus('items')
-      setFiltering(true)
-      return
-    }
-    if (key.return || input === '\r' || input === '\n') {
-      setFocus('detail')
-      setExpanded((v) => !v)
-      return
-    }
+    // Keys that work at every level.
     if (key.escape) {
-      setExpanded(false)
+      if (view === 'detail') setView('list')
+      else if (view === 'list') setView('sources')
       return
     }
     if (input === 'r') {
@@ -153,68 +118,104 @@ function App({ limit = TUI_LIMIT, staleDays, repo }: TuiOptions) {
       return
     }
     if (input === '1' || input === '2' || input === '3') {
-      changeSource(input === '1' ? 'all' : input === '2' ? 'prs' : 'issues')
+      openSource(input === '1' ? 'all' : input === '2' ? 'prs' : 'issues')
+      return
     }
+
+    if (view === 'sources') {
+      if (key.upArrow || input === 'k') {
+        setSourceCursor((c) => Math.max(0, c - 1))
+        return
+      }
+      if (key.downArrow || input === 'j') {
+        setSourceCursor((c) => Math.min(sources.length - 1, c + 1))
+        return
+      }
+      if (key.return || input === '\r' || input === '\n') {
+        openSource(sources[sourceCursor] ?? 'all')
+        return
+      }
+      return
+    }
+
+    if (view === 'list') {
+      if (key.upArrow || input === 'k') {
+        setCursor((c) => Math.max(0, c - 1))
+        return
+      }
+      if (key.downArrow || input === 'j') {
+        setCursor((c) => Math.min(filtered.length - 1, c + 1))
+        return
+      }
+      if (input === 'g') {
+        setCursor(0)
+        return
+      }
+      if (input === 'G') {
+        setCursor(Math.max(0, filtered.length - 1))
+        return
+      }
+      if (input === '/') {
+        setFiltering(true)
+        return
+      }
+      if (key.return || input === '\r' || input === '\n') {
+        if (selected) setView('detail')
+        return
+      }
+      return
+    }
+
+    // detail: the global keys above already cover it.
   })
 
-  // Pane widths. Each ink box carries 2 border chars and 2 paddingX, and the
-  // two right-hand panes each add a 1-column margin.
-  const sidebarWidth = Math.max(18, Math.min(22, Math.round(columns * 0.16)))
-  const detailWidth = expanded
-    ? Math.max(34, columns - sidebarWidth - 28)
-    : Math.max(28, Math.min(34, Math.round(columns * 0.25)))
-  const itemWidth = Math.max(28, columns - sidebarWidth - detailWidth - 2)
+  // Full width for whichever level is on screen.
+  const width = columns
   const listHeight = Math.max(6, rows - 8)
+  const footerWidth = Math.max(20, width - 4)
 
-  const hintText = HINTS.map(([k, label]) => `${k} ${label}`).join('  ·  ')
-  const footerWidth = Math.max(20, columns - 4)
+  // Breadcrumb: where you are in the stack.
+  const breadcrumb =
+    view === 'sources'
+      ? 'Sources'
+      : view === 'list'
+        ? `Sources › ${sourceLabel(source)}${loading ? '' : ` (${filtered.length}/${counts.all})`}`
+        : `Sources › ${sourceLabel(source)} › ${selected ? `${selected.repo}#${selected.number}` : '…'}`
 
   return (
     <Box flexDirection="column" height="100%">
-      <Box
-        borderStyle="round"
-        borderColor={focus === 'sources' ? palette.focus : palette.border}
-        paddingX={1}
-      >
+      <Box borderStyle="round" borderColor={palette.border} paddingX={1}>
         <Text bold color={palette.title}>gh-debt</Text>
         <Text color={palette.muted}>{"  "}</Text>
-        <Text color={loading ? palette.issue : palette.live}>{loading ? '● loading' : '● live'}</Text>
+        <Text color={palette.focus}>{breadcrumb}</Text>
         <Box flexGrow={1} justifyContent="flex-end">
-          <Text color={palette.muted}>
-            {sourceLabel(source)} {loading ? '' : `${filtered.length}/${counts.all}`}
-            {repo ? `  repo:${repo}` : ''}
-            {staleDays ? `  stale>${staleDays}d` : ''}
-          </Text>
+          <Text color={loading ? palette.issue : palette.live}>{loading ? '● loading' : '● live'}</Text>
         </Box>
       </Box>
 
-      <Box flexDirection="row" flexGrow={1} marginTop={1}>
-        <Sidebar
-          source={source}
-          counts={counts}
-          loading={loading}
-          focused={focus === 'sources'}
-          width={sidebarWidth}
-        />
-        <ItemList
-          items={filtered}
-          cursor={cursor}
-          focused={focus === 'items'}
-          filter={filter}
-          filtering={filtering}
-          loading={loading}
-          error={error}
-          width={itemWidth}
-          height={listHeight}
-          marginLeft={1}
-        />
-        <Detail item={selected} focused={focus === 'detail'} width={detailWidth} marginLeft={1} />
+      <Box flexGrow={1} marginTop={1}>
+        {view === 'sources' && (
+          <Sources counts={counts} loading={loading} cursor={sourceCursor} width={width} />
+        )}
+        {view === 'list' && (
+          <ItemList
+            items={filtered}
+            cursor={cursor}
+            filter={filter}
+            filtering={filtering}
+            loading={loading}
+            error={error}
+            width={width}
+            height={listHeight}
+          />
+        )}
+        {view === 'detail' && <Detail item={selected} width={width} />}
       </Box>
 
       <Box borderStyle="round" borderColor={palette.border} paddingX={1} marginTop={1}>
         <Text color={palette.muted} wrap="truncate">
           {' '}
-          {truncate(hintText, footerWidth)}
+          {truncate(HINTS[view], footerWidth)}
         </Text>
       </Box>
     </Box>

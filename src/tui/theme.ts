@@ -24,19 +24,25 @@ export const palette = {
   live: '#3fb950',
 } as const
 
-export type Pane = 'sources' | 'items' | 'detail'
+/**
+ * The three levels of the navigation stack.
+ *
+ * The UI is navigation, not a three-pane split: each level takes the full
+ * width and you drill down and back out of it. A side-by-side layout leaves
+ * the middle column too narrow to hold a repo and a title at once.
+ */
+export type View = 'sources' | 'list' | 'detail'
 
-/** Order used when cycling focus with tab. */
-export const paneOrder: Pane[] = ['sources', 'items', 'detail']
+export const viewOrder: View[] = ['sources', 'list', 'detail']
 
-export function nextPane(pane: Pane): Pane {
-  const i = paneOrder.indexOf(pane)
-  return paneOrder[(i + 1) % paneOrder.length]
+export function nextView(view: View): View {
+  const i = viewOrder.indexOf(view)
+  return viewOrder[Math.min(viewOrder.length - 1, i + 1)]
 }
 
-export function prevPane(pane: Pane): Pane {
-  const i = paneOrder.indexOf(pane)
-  return paneOrder[(i - 1 + paneOrder.length) % paneOrder.length]
+export function prevView(view: View): View {
+  const i = viewOrder.indexOf(view)
+  return viewOrder[Math.max(0, i - 1)]
 }
 
 /** Truncate from the left, keeping the end of the string. */
