@@ -20,6 +20,32 @@ npm ci
 npm run build
 ```
 
+## Interactive UI
+
+```bash
+gh debt          # on a terminal
+gh debt -i       # explicitly, even if you normally script it
+```
+
+Three panes: sources on the left, the list in the middle, details on the right.
+
+| Key | Action |
+|-----|--------|
+| `1` `2` `3` | All / PRs / Issues |
+| `←` `→` | Cycle sources |
+| `↑` `↓` or `k` `j` | Move the selection |
+| `tab` | Move focus to the next pane |
+| `/` | Filter by repo and title (`esc` clears) |
+| `↵` | Expand the detail pane |
+| `b` | Open the item with `gh browse` |
+| `r` | Re-fetch |
+| `q` | Quit |
+
+The UI is a full-screen alt-buffer render, so it restores the terminal on
+exit. When stdin or stdout is not a TTY — a pipe, a redirect, CI — `gh debt`
+prints the plain table instead, and `-i` fails with an explanation rather
+than taking over the screen.
+
 ## Commands
 
 | Command | Description |
@@ -47,7 +73,18 @@ gh debt stats
 
 # Stale items (not updated in 7+ days)
 gh debt stale
+
+# Machine-readable output
+gh debt list --format json
+gh debt stats --format md
 ```
+
+## How it works
+
+Data comes from `gh api graphql` (a `search` query), so authentication,
+proxies and GitHub Enterprise behave exactly as they do for `gh` itself. The
+package has no runtime dependencies — React and ink are bundled into the
+interactive chunk at build time, and the plain CLI stays ~12 kB.
 
 ## License
 

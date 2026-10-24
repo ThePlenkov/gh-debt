@@ -11,4 +11,6 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   clean: true,
+  // Without minification React+ink ship at ~1.5 MB instead of ~670 KB.
+  minify: true,
 })

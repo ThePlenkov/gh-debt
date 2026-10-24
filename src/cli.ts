@@ -5,146 +5,132 @@
  * Shows PRs where you're requested as a reviewer, issues assigned to you,
  * and stale items across all your repos, prioritized by last-updated date.
  *
- * Usage:
- *   gh debt list [--limit N] [--stale DAYS] [--repo OWNER/REPO] [--format table|json|md]
- *   gh debt prs  [--limit N] [--stale DAYS] [--repo OWNER/REPO] [--format table|json|md]
- *   gh debt issues [--limit N] [--stale DAYS] [--repo OWNER/REPO] [--format table|json|md]
- *   gh debt stats
- *   gh debt stale [--days N] [--format table|json|md]
+ * A subcommand (or piped output) prints plain text, so it stays scriptable.
+ * With no subcommand on a terminal — or with -i — the interactive UI opens.
  */
-import { parseArgs } from 'node:util'
+import { readFile } from 'node:fs/promises'
+import { defineCommand, runMain, type ArgsDef, type CommandDef } from 'citty'
 import {
-  fetchReviewerPRs,
-  fetchAssignedIssues,
-  fetchAllDebt,
-  toDebtItem,
-} from './github.ts'
-import { renderTable, renderMarkdown, renderJSON, renderSummary } from './formatters.ts'
-import type { DebtItem } from './types.ts'
-import type { GitHubItem } from './github.ts'
+  parseCommon,
+  runIssues,
+  runList,
+  runPrs,
+  runStale,
+  runStats,
+  withErrors,
+  type CommonArgs,
+} from './commands.ts'
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    limit: { type: 'string', short: 'l', default: '30' },
-    stale: { type: 'string', short: 's' },
-    repo: { type: 'string', short: 'r' },
-    format: { type: 'string', short: 'f', default: 'table' },
-    days: { type: 'string', short: 'd', default: '7' },
-    help: { type: 'boolean', short: 'h' },
+type RawArgs = Record<string, unknown> & { interactive?: boolean }
+
+/** Flags shared by the main command and every subcommand. */
+function sharedArgs(): ArgsDef {
+  return {
+    limit: {
+      type: 'string',
+      description: 'Maximum items to fetch (default: 30)',
+      default: '30',
+      alias: ['l'],
+    },
+    stale: {
+      type: 'string',
+      description: 'Only show items not updated in the last N days',
+      alias: ['s'],
+    },
+    repo: {
+      type: 'string',
+      description: 'Scope to a specific repository (OWNER/REPO)',
+      alias: ['r'],
+    },
+    format: {
+      type: 'string',
+      description: 'Output format: table | json | md',
+      default: 'table',
+      alias: ['f'],
+    },
+    days: {
+      type: 'string',
+      description: 'Days for the stale filter (stale command, default: 7)',
+      default: '7',
+      alias: ['d'],
+    },
+  }
+}
+
+async function packageVersion(): Promise<string> {
+  try {
+    const pkg = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { version?: string }
+    return pkg.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
+
+function isInteractiveTerminal(): boolean {
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)
+}
+
+/** Wrap a plain-text command as a citty subcommand. */
+function plain(name: string, description: string, run: (args: CommonArgs) => void) {
+  return defineCommand({
+    meta: { name, description },
+    args: sharedArgs(),
+    run({ args }) {
+      process.exitCode = withErrors(() => run(parseCommon(args)))
+    },
+  })
+}
+
+async function runInteractive(common: CommonArgs, explicit: boolean): Promise<void> {
+  if (!isInteractiveTerminal()) {
+    if (explicit) {
+      console.error('❌ --interactive needs a terminal: stdin and stdout must both be TTYs.')
+      console.error('   Run a subcommand instead, e.g. `gh debt list`.')
+      process.exitCode = 1
+      return
+    }
+    // Not a terminal — fall back to plain output so pipes and CI keep working.
+    process.exitCode = withErrors(() => runList(common))
+    return
+  }
+
+  const { runTui } = await import('./tui/app.tsx')
+  runTui({
+    // The UI feeds every sidebar tab from one fetch, so it asks for more
+    // items than a single plain command would.
+    limit: Math.max(common.limit, 100),
+    staleDays: common.staleDays,
+    repo: common.repo,
+  })
+}
+
+const main = defineCommand({
+  meta: {
+    name: 'gh-debt',
+    version: await packageVersion(),
+    description:
+      'Track GitHub technical debt — PRs awaiting your review, issues assigned to you, and stale items, prioritized by last-updated date.',
   },
-  allowPositionals: true,
+  args: {
+    ...sharedArgs(),
+    interactive: {
+      type: 'boolean',
+      description: 'Open the interactive UI (implied on a terminal with no subcommand)',
+      alias: ['i'],
+    },
+  },
+  subCommands: {
+    list: plain('list', 'Show all debt (PRs + issues)', runList),
+    prs: plain('prs', 'Show PRs where you are requested as a reviewer', runPrs),
+    issues: plain('issues', 'Show issues assigned to you', runIssues),
+    stats: plain('stats', 'Show a summary breakdown by repository', runStats),
+    stale: plain('stale', 'Show items not updated in N days (default: 7)', runStale),
+  },
+  async run({ args }) {
+    await runInteractive(parseCommon(args), Boolean(args.interactive))
+  },
 })
 
-const command = positionals[0] ?? 'list'
-
-if (values.help || command === 'help' || command === '--help') {
-  console.log(`
-gh-debt — Track GitHub technical debt across all your repositories.
-
-Prioritizes PRs awaiting your review and issues assigned to you by
-last-updated date, so nothing slips through the cracks.
-
-Commands:
-  list      Show all debt (PRs + issues) — default
-  prs       Show PRs where you're requested as a reviewer
-  issues    Show issues assigned to you
-  stats     Show a summary breakdown by repository
-  stale     Show items not updated in N days (default: 7)
-
-Flags:
-  --limit N     Maximum items to fetch (default: 30)
-  --stale DAYS  Only show items not updated in the last N days
-  --repo OWNER/REPO  Scope to a specific repository
-  --format FORMAT  Output format: table | json | md
-  --days N      Days for stale filter (used with 'stale' command)
-  -h, --help    Show this help
-
-Examples:
-  gh debt list
-  gh debt prs --limit 20
-  gh debt issues --stale 14
-  gh debt stats
-  gh debt stale --days 14
-  gh debt list --format json
-`)
-  process.exit(0)
-}
-
-// Parse options
-const limit = parseInt(values.limit ?? '30', 10)
-const staleDays = values.stale ? parseInt(values.stale, 10) : undefined
-const repo = values.repo
-const format = (values.format ?? 'table') as 'table' | 'json' | 'md'
-
-function output(items: DebtItem[], fmt: 'table' | 'json' | 'md'): void {
-  switch (fmt) {
-    case 'json':
-      console.log(renderJSON(items))
-      break
-    case 'md':
-      console.log(renderMarkdown(items))
-      break
-    case 'table':
-    default:
-      console.log(renderTable(items))
-      break
-  }
-}
-
-function handleFetch(fn: () => GitHubItem[]): void {
-  try {
-    const items = fn().map(toDebtItem)
-    output(items, format)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('gh api graphql failed') || msg.includes('GraphQL errors')) {
-      console.error('❌ Failed to query GitHub. Ensure you are authenticated:')
-      console.error('   gh auth login')
-      console.error(`   ${msg}`)
-      process.exit(1)
-    }
-    console.error(`❌ Error: ${msg}`)
-    process.exit(1)
-  }
-}
-
-switch (command) {
-  case 'list': {
-    handleFetch(() => fetchAllDebt({ limit, staleDays, repo }))
-    break
-  }
-  case 'prs': {
-    handleFetch(() => fetchReviewerPRs({ limit, staleDays, repo }))
-    break
-  }
-  case 'issues': {
-    handleFetch(() => fetchAssignedIssues({ limit, staleDays, repo }))
-    break
-  }
-  case 'stats': {
-    try {
-      const items = fetchAllDebt({ limit }).map(toDebtItem)
-      console.log(renderSummary(items, format))
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('gh api graphql failed') || msg.includes('GraphQL errors')) {
-        console.error('❌ Failed to query GitHub. Ensure you are authenticated:')
-        console.error('   gh auth login')
-        process.exit(1)
-      }
-      console.error(`❌ Error: ${msg}`)
-      process.exit(1)
-    }
-    break
-  }
-  case 'stale': {
-    const days = parseInt(values.days ?? '7', 10)
-    handleFetch(() => fetchAllDebt({ limit, staleDays: days, repo }))
-    break
-  }
-  default:
-    console.error(`Unknown command: ${command}`)
-    console.error('Run `gh debt --help` for usage.')
-    process.exit(1)
-}
+runMain(main)
