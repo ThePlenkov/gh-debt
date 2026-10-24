@@ -3,3 +3,8 @@ node_modules/
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Agent skills live in .agents/skills/ and are generated from skills-lock.json,
+# which is the source of truth and IS committed. Restore them with:
+#   npx skills experimental_install
+.agents/

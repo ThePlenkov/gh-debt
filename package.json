@@ -38,7 +38,10 @@
     "nx:test": "nx run gh-debt:test",
     "nx:release": "nx run tools:release",
     "nx:graph": "nx graph",
-    "nx:affected": "nx affected"
+    "nx:affected": "nx affected",
+    "skills:restore": "npx -y skills@latest experimental_install -y",
+    "skills:add": "npx -y skills@latest add nx-devkit/nx.ts -a universal -s '*' -y",
+    "skills:list": "npx -y skills@latest list"
   },
   "devDependencies": {
     "@nx-devkit/release": "^0.1.0",
