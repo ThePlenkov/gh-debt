@@ -9,6 +9,7 @@ import {
   ShellStep,
   Entry,
   push,
+  manual,
 } from '@sverka/workflow'
 
 const proj = new Project("gh-debt")
@@ -22,6 +23,72 @@ new ShellStep(ci, "build", { command: "npm run build" })
 export const onPush = new Entry(ci, "on-push", {
   trigger: push(),
   roots: ["typecheck", "test", "build"],
+})
+
+// ── GitHub-side repository health ──────────────────────────────────
+// These check the state of the repository on GitHub, not the code.
+const repoHealth = new Pipeline(proj, "repo-health", {
+  permissions: {
+    contents: "read",
+    "pull-requests": "read",
+    checks: "read",
+    "security-events": "read",
+    actions: "read",
+  },
+  inputs: {
+    GITHUB_TOKEN: { type: "string", secret: true, default: "" },
+    // Optional: a token with the vulnerability-alerts permission —
+    // the workflow token cannot read the Dependabot alerts.
+    REPO_HEALTH_TOKEN: { type: "string", secret: true, default: "" },
+  },
+  bootstrap: "checkout",
+})
+
+// Every GitHub Actions check-run on the default branch is green (non-Actions apps are reported, never gated).
+new ShellStep(repoHealth, "main-green", {
+  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; out=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug == \"github-actions\") | select(.conclusion != \"success\" and .conclusion != \"skipped\" and .conclusion != \"neutral\") | \"\\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$out\" ] || { echo \"non-green checks on $branch:\"; echo \"$out\"; exit 1; }; other=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug != \"github-actions\") | \"\\(.app.slug): \\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$other\" ] || { echo \"checks from other apps on $branch (reported, never gated):\"; echo \"$other\"; }",
+  runtime: { shell: "sh" },
+})
+
+// No unresolved review threads in the last 20 merged PRs (GraphQL).
+new ShellStep(repoHealth, "review-debt", {
+  command: "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
+  runtime: { shell: "sh" },
+})
+
+// No open Dependabot alerts (advanced security).
+new ShellStep(repoHealth, "dependabot-alerts", {
+  command: "[ -z \"$REPO_HEALTH_TOKEN\" ] || export GH_TOKEN=\"$REPO_HEALTH_TOKEN\"; out=$(gh api --paginate 'repos/{owner}/{repo}/dependabot/alerts?state=open' --jq '.[].number' 2>&1) || { if echo \"$out\" | grep -qi \"not accessible\\|403\\|404\"; then if [ -n \"$REPO_HEALTH_TOKEN\" ]; then echo \"REPO_HEALTH_TOKEN cannot read dependabot alerts — check its scopes (vulnerability-alerts read) or remove the secret\"; exit 1; fi; echo \"::warning::GITHUB_TOKEN cannot read dependabot alerts (needs the vulnerability-alerts permission); check skipped\"; exit 0; fi; echo \"$out\"; exit 1; }; [ -z \"$out\" ] || { echo \"open dependabot alerts:\"; echo \"$out\"; exit 1; }",
+  runtime: { shell: "sh", secrets: ["REPO_HEALTH_TOKEN"] },
+})
+
+// No open code-scanning alerts (advanced security).
+new ShellStep(repoHealth, "code-scanning", {
+  command: "out=$(gh api --paginate 'repos/{owner}/{repo}/code-scanning/alerts?state=open' --jq '.[].number' 2>&1) || { if echo \"$out\" | grep -qi \"not found\\|404\\|403\\|not accessible\"; then echo \"::warning::code scanning is not available for this repository — check skipped\"; exit 0; fi; echo \"$out\"; exit 1; }; [ -z \"$out\" ] || { echo \"open code scanning alerts:\"; echo \"$out\"; exit 1; }",
+  runtime: { shell: "sh" },
+})
+
+// No open secret-scanning alerts (advanced security).
+new ShellStep(repoHealth, "secret-scanning", {
+  command: "out=$(gh api --paginate 'repos/{owner}/{repo}/secret-scanning/alerts?state=open' --jq '.[].number' 2>&1) || { if echo \"$out\" | grep -qi \"not found\\|404\\|403\\|not accessible\"; then echo \"::warning::secret scanning is not available for this repository — check skipped\"; exit 0; fi; echo \"$out\"; exit 1; }; [ -z \"$out\" ] || { echo \"open secret scanning alerts:\"; echo \"$out\"; exit 1; }",
+  runtime: { shell: "sh" },
+})
+
+// No remote branch left behind by a merged PR.
+new ShellStep(repoHealth, "stale-branches", {
+  command: "remote=$(git ls-remote --heads origin 2>&1) || { echo \"ls-remote failed: $remote\"; exit 1; }; branches=$(printf '%s\n' \"$remote\" | sed 's|.*refs/heads/||') owner=$(gh repo view --json owner --jq '.owner.login') || exit 1; branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; stale=\"\"; for b in $branches; do [ \"$b\" = \"$branch\" ] && continue; n=$(gh pr list --head \"$b\" --state merged --json number,headRepositoryOwner --jq '[.[] | select(.headRepositoryOwner.login == \"'\"$owner\"'\")] | length') || exit 1; [ \"$n\" -gt 0 ] && stale=\"$stale $b\"; done; [ -z \"$stale\" ] || { echo \"stale branches:$stale\"; exit 1; }",
+  runtime: { shell: "sh" },
+})
+
+// Lists the open PRs (informational, never fails).
+new ShellStep(repoHealth, "open-prs", {
+  command: "gh pr list --state open --limit 100 --json number,title,author --jq '.[] | \"#\\(.number) \\(.title) (@\\(.author.login))\"' || true",
+  runtime: { shell: "sh" },
+})
+
+export const repoHealthCheck = new Entry(repoHealth, "check", {
+  trigger: manual(),
+  roots: ["main-green", "review-debt", "dependabot-alerts", "code-scanning", "secret-scanning", "stale-branches", "open-prs"],
 })
 
 export default proj
