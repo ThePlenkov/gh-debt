@@ -52,12 +52,17 @@ export function isSubCommand(argv: string[] = process.argv.slice(2)): boolean {
 /**
  * The main command's non-interactive branch: skip when a subcommand already
  * rendered, otherwise print the plain list.
+ *
+ * `fallback` is injectable so the decision can be tested without reaching
+ * GitHub — the default shells out to `gh`, which needs credentials.
  */
 export async function runMainBranchOnce(
   common: CommonArgs,
   argv: string[] = process.argv.slice(2),
-): Promise<number> {
-  if (isSubCommand(argv)) return 0
-  process.exitCode = withErrors(() => runList(common))
-  return process.exitCode
+  fallback: () => void = () => {
+    process.exitCode = withErrors(() => runList(common))
+  },
+): Promise<void> {
+  if (isSubCommand(argv)) return
+  fallback()
 }
