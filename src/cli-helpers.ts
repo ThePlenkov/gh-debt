@@ -1,11 +1,13 @@
 /**
- * The one decision the CLI's entry point has to make twice: whether citty
- * already dispatched to a subcommand.
+ * The decisions the CLI's entry point has to make twice: whether citty
+ * already dispatched to a subcommand, and what the main command does when it
+ * did not.
  *
  * citty runs the matched subcommand's `run` and then the main command's `run`,
- * so the main command's non-interactive fallback would print the same table a
- * second time. Extracted here so the decision is testable without running the
- * whole CLI.
+ * so the main command must do nothing when a subcommand was dispatched. That
+ * holds on a terminal too: guarding only the non-TTY fallback let
+ * `gh debt list` print its table and then open the UI on top of it. Both
+ * branches are guarded, and both are covered by tests.
  */
 import { runList, withErrors, type CommonArgs } from './commands.ts'
 
@@ -65,4 +67,47 @@ export function runMainBranchOnce(
 ): void {
   if (isSubCommand(argv)) return
   fallback()
+}
+
+/** True when stdin and stdout are both terminals. */
+export function isInteractiveTerminal(): boolean {
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)
+}
+
+/**
+ * The main command's `run`. A subcommand owns the output, so it returns
+ * immediately; otherwise it prints plain text off a terminal, or opens the UI.
+ *
+ * `launchTui` is injectable so the dispatch can be tested without rendering:
+ * the default imports the Ink app, which needs React.
+ */
+export async function runInteractive(
+  common: CommonArgs,
+  explicit: boolean,
+  launchTui: () => void = () => {
+    void import('./tui/app.tsx').then(({ runTui }) => {
+      // The UI feeds every sidebar tab from one fetch, so it asks for more
+      // items than a single plain command would.
+      runTui({
+        limit: Math.max(common.limit, 100),
+        staleDays: common.staleDays,
+        repo: common.repo,
+      })
+    })
+  },
+): Promise<void> {
+  if (isSubCommand()) return
+
+  if (!isInteractiveTerminal()) {
+    if (explicit) {
+      console.error('❌ --interactive needs a terminal: stdin and stdout must both be TTYs.')
+      console.error('   Run a subcommand instead, e.g. `gh debt list`.')
+      process.exitCode = 1
+      return
+    }
+    runMainBranchOnce(common)
+    return
+  }
+
+  launchTui()
 }

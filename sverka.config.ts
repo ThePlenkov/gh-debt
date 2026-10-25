@@ -45,10 +45,12 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 })
 
 // Every GitHub Actions check-run on the default branch is green (non-Actions apps are reported, never gated).
-// Only completed runs are judged: an in-progress run has no conclusion, and this pipeline's own run
-// creates one on the branch it gates — without the guard, main-green fails on its own run.
+// Only the latest run of each check name is judged, and only once it completed: the check-runs API returns
+// every run on the commit — superseded re-runs and in-progress jobs included — while GitHub's UI shows the
+// latest, so judging all of them keeps the gate red on a commit whose newest run is green. This pipeline's
+// own run on the branch it gates is the in-progress case.
 new ShellStep(repoHealth, "main-green", {
-  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; out=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug == \"github-actions\") | select(.status == \"completed\") | select(.conclusion != \"success\" and .conclusion != \"skipped\" and .conclusion != \"neutral\") | \"\\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$out\" ] || { echo \"non-green checks on $branch:\"; echo \"$out\"; exit 1; }; other=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug != \"github-actions\") | \"\\(.app.slug): \\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$other\" ] || { echo \"checks from other apps on $branch (reported, never gated):\"; echo \"$other\"; }",
+  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; out=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs | group_by(.name) | map(sort_by(.id) | last) | map(select(.app.slug == \"github-actions\")) | map(select(.status == \"completed\")) | map(select(.conclusion != \"success\" and .conclusion != \"skipped\" and .conclusion != \"neutral\")) | .[] | \"\\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$out\" ] || { echo \"non-green checks on $branch:\"; echo \"$out\"; exit 1; }; other=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug != \"github-actions\") | \"\\(.app.slug): \\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$other\" ] || { echo \"checks from other apps on $branch (reported, never gated):\"; echo \"$other\"; }",
   runtime: { shell: "sh" },
 })
 
