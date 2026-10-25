@@ -56,13 +56,13 @@ export function isSubCommand(argv: string[] = process.argv.slice(2)): boolean {
  * `fallback` is injectable so the decision can be tested without reaching
  * GitHub — the default shells out to `gh`, which needs credentials.
  */
-export async function runMainBranchOnce(
+export function runMainBranchOnce(
   common: CommonArgs,
   argv: string[] = process.argv.slice(2),
   fallback: () => void = () => {
     process.exitCode = withErrors(() => runList(common))
   },
-): Promise<void> {
+): void {
   if (isSubCommand(argv)) return
   fallback()
 }
