@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink'
-import { render } from 'ink'
+import { render, type RenderOptions } from 'ink'
 import { palette, truncate, type View } from './theme.ts'
 import { matchesSource, sources, sourceLabel, type Source } from './source.ts'
 import { useDebt } from './use-debt.ts'
@@ -20,6 +20,21 @@ export interface TuiOptions {
 }
 
 const TUI_LIMIT = 100
+
+/**
+ * Render options for the interactive UI.
+ *
+ * `alternateScreen` puts the UI in the terminal's alternate buffer, so the UI
+ * owns the whole screen and the shell's prior content is restored on exit.
+ * Without it Ink renders into the primary buffer: the transcript stays behind
+ * the UI and is still on screen after quitting.
+ *
+ * `patchConsole` stays off — `gh` may write to the console, and the UI must
+ * not swallow or re-render it.
+ */
+export function renderOptions(): RenderOptions {
+  return { patchConsole: false, alternateScreen: true }
+}
 
 /** Keys shown in the footer, per level of the stack. */
 const HINTS: Record<View, string> = {
@@ -224,5 +239,5 @@ function App({ limit = TUI_LIMIT, staleDays, repo }: TuiOptions) {
 
 /** Render the interactive UI. Called from the CLI's interactive branch. */
 export function runTui(options: TuiOptions = {}): void {
-  render(<App {...options} />, { patchConsole: false })
+  render(<App {...options} />, renderOptions())
 }
