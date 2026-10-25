@@ -95,4 +95,16 @@ describe('what the main command does after citty dispatches', () => {
     process.stdout.isTTY = false
     assert.equal(isInteractiveTerminal(), false)
   })
+
+  it('propagates a failed TUI launch to the caller', async () => {
+    // A detached import rejects where citty cannot see it; awaiting the launcher
+    // is what puts the failure in the command error handler's path.
+    process.argv = ['node', 'cli.mjs']
+    process.stdin.isTTY = true
+    process.stdout.isTTY = true
+    await assert.rejects(
+      () => runInteractive({ limit: 30 } as never, false, () => Promise.reject(new Error('ink missing'))),
+      /ink missing/,
+    )
+  })
 })

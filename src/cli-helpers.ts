@@ -79,13 +79,14 @@ export function isInteractiveTerminal(): boolean {
  * immediately; otherwise it prints plain text off a terminal, or opens the UI.
  *
  * `launchTui` is injectable so the dispatch can be tested without rendering:
- * the default imports the Ink app, which needs React.
+ * the default imports the Ink app, which needs React. It is awaited, so a
+ * failed import reaches citty's error handler instead of rejecting detached.
  */
 export async function runInteractive(
   common: CommonArgs,
   explicit: boolean,
-  launchTui: () => void = () => {
-    void import('./tui/app.tsx').then(({ runTui }) => {
+  launchTui: () => void | Promise<void> = () =>
+    import('./tui/app.tsx').then(({ runTui }) => {
       // The UI feeds every sidebar tab from one fetch, so it asks for more
       // items than a single plain command would.
       runTui({
@@ -93,8 +94,7 @@ export async function runInteractive(
         staleDays: common.staleDays,
         repo: common.repo,
       })
-    })
-  },
+    }),
 ): Promise<void> {
   if (isSubCommand()) return
 
@@ -109,5 +109,5 @@ export async function runInteractive(
     return
   }
 
-  launchTui()
+  await launchTui()
 }
