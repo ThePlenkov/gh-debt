@@ -20,6 +20,7 @@ import {
   withErrors,
   type CommonArgs,
 } from './commands.ts'
+import { runMainBranchOnce } from './cli-helpers.ts'
 
 type RawArgs = Record<string, unknown> & { interactive?: boolean }
 
@@ -92,7 +93,10 @@ async function runInteractive(common: CommonArgs, explicit: boolean): Promise<vo
       return
     }
     // Not a terminal — fall back to plain output so pipes and CI keep working.
-    process.exitCode = withErrors(() => runList(common))
+    // Only when no subcommand was given: citty runs the matched subcommand's
+    // `run` and then this one, and the non-interactive fallback would print the
+    // same table a second time. An explicit subcommand always renders once.
+    process.exitCode = await runMainBranchOnce(common)
     return
   }
 

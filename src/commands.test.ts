@@ -57,3 +57,34 @@ describe('renderItems', () => {
     assert.match(seen[0], /Total: 0 items/)
   })
 })
+
+describe('subcommand output', () => {
+  // citty runs the matched subcommand's `run` and then the main command's `run`,
+  // so the main command must not fall back to plain output when a subcommand
+  // already rendered — that printed every table twice.
+  it('renders nothing when a subcommand already rendered', async () => {
+    const { runMainBranchOnce } = await import('./cli-helpers.ts')
+    const original = console.log
+    const seen: string[] = []
+    console.log = (...args: unknown[]) => seen.push(args.join(' '))
+    try {
+      await runMainBranchOnce({ limit: 0 } as never, ['list'])
+    } finally {
+      console.log = original
+    }
+    assert.equal(seen.length, 0)
+  })
+
+  it('falls back to plain output when no subcommand was given', async () => {
+    const { runMainBranchOnce } = await import('./cli-helpers.ts')
+    const original = console.log
+    const seen: string[] = []
+    console.log = (...args: unknown[]) => seen.push(args.join(' '))
+    try {
+      await runMainBranchOnce({ limit: 0 } as never, [])
+    } finally {
+      console.log = original
+    }
+    assert.equal(seen.length, 1)
+  })
+})
