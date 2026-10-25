@@ -96,7 +96,7 @@ async function runInteractive(common: CommonArgs, explicit: boolean): Promise<vo
     // Only when no subcommand was given: citty runs the matched subcommand's
     // `run` and then this one, and the non-interactive fallback would print the
     // same table a second time. An explicit subcommand always renders once.
-    await runMainBranchOnce(common)
+    runMainBranchOnce(common)
     return
   }
 
