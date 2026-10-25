@@ -45,14 +45,19 @@ const repoHealth = new Pipeline(proj, "repo-health", {
 })
 
 // Every GitHub Actions check-run on the default branch is green (non-Actions apps are reported, never gated).
+// Only completed runs are judged: an in-progress run has no conclusion, and this pipeline's own run
+// creates one on the branch it gates — without the guard, main-green fails on its own run.
 new ShellStep(repoHealth, "main-green", {
-  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; out=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug == \"github-actions\") | select(.conclusion != \"success\" and .conclusion != \"skipped\" and .conclusion != \"neutral\") | \"\\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$out\" ] || { echo \"non-green checks on $branch:\"; echo \"$out\"; exit 1; }; other=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug != \"github-actions\") | \"\\(.app.slug): \\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$other\" ] || { echo \"checks from other apps on $branch (reported, never gated):\"; echo \"$other\"; }",
+  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || exit 1; out=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug == \"github-actions\") | select(.status == \"completed\") | select(.conclusion != \"success\" and .conclusion != \"skipped\" and .conclusion != \"neutral\") | \"\\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$out\" ] || { echo \"non-green checks on $branch:\"; echo \"$out\"; exit 1; }; other=$(gh api --paginate \"repos/{owner}/{repo}/commits/$branch/check-runs\" --jq '.check_runs[] | select(.app.slug != \"github-actions\") | \"\\(.app.slug): \\(.name) (\\(.conclusion // .status))\"') || { echo \"check-runs query failed\"; exit 1; }; [ -z \"$other\" ] || { echo \"checks from other apps on $branch (reported, never gated):\"; echo \"$other\"; }",
   runtime: { shell: "sh" },
 })
 
 // No unresolved review threads in the last 20 merged PRs (GraphQL).
+// GraphQL cannot order by merge time, so a window of 100 is fetched by creation time and the 20 most
+// recently *merged* are selected client-side. A window that is itself truncated is reported, so a
+// missed PR fails the check rather than passing it silently.
 new ShellStep(repoHealth, "review-debt", {
-  command: "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:20,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){nodes{reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '([.data.repository.pullRequests.nodes[].reviewThreads.nodes[]|select(.isResolved==false)]|length) + ([.data.repository.pullRequests.nodes[].reviewThreads.pageInfo.hasNextPage|select(.)]|length)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
+  command: "count=$(gh api graphql -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(first:100,states:MERGED,orderBy:{field:CREATED_AT,direction:DESC}){pageInfo{hasNextPage}nodes{mergedAt reviewThreads(first:100){pageInfo{hasNextPage}nodes{isResolved}}}}}}' -F owner='{owner}' -F name='{repo}' --jq '.data.repository.pullRequests as $prs | ($prs.nodes | sort_by(.mergedAt) | reverse | .[0:20]) as $recent | ([ $recent[].reviewThreads.nodes[] | select(.isResolved==false) ] | length) as $threads | ([ $recent[].reviewThreads.pageInfo.hasNextPage | select(.) ] | length) as $truncated | $threads + $truncated + (if $prs.pageInfo.hasNextPage then 1 else 0 end)') || exit 1; [ \"$count\" = \"0\" ] || { echo \"unresolved threads or truncated thread pages: $count\"; exit 1; }",
   runtime: { shell: "sh" },
 })
 
