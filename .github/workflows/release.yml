@@ -50,13 +50,13 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Build
-        run: nx run-many -t build
+        run: ./node_modules/.bin/nx run-many -t build
 
       - name: Typecheck
-        run: nx run-many -t typecheck
+        run: ./node_modules/.bin/nx run-many -t typecheck
 
       - name: Test
-        run: nx run-many -t test
+        run: ./node_modules/.bin/nx run-many -t test
 
       # Provenance requires the OIDC flow, so there is no NODE_AUTH_TOKEN:
       # with a token in the environment npm skips OIDC and --provenance fails.
@@ -71,6 +71,6 @@ jobs:
           BUMP: ${{ inputs.bump }}
           DRY_RUN: ${{ inputs.dry-run }}
         run: |
-          nx run tools:release \
+          ./node_modules/.bin/nx run tools:release \
             --configuration="$BUMP" \
             --dryRun="$DRY_RUN"
