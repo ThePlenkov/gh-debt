@@ -20,6 +20,7 @@ import {
   withErrors,
   type CommonArgs,
 } from './commands.ts'
+import { runInteractive } from './cli-helpers.ts'
 
 type RawArgs = Record<string, unknown> & { interactive?: boolean }
 
@@ -68,10 +69,6 @@ async function packageVersion(): Promise<string> {
   }
 }
 
-function isInteractiveTerminal(): boolean {
-  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)
-}
-
 /** Wrap a plain-text command as a citty subcommand. */
 function plain(name: string, description: string, run: (args: CommonArgs) => void) {
   return defineCommand({
@@ -80,29 +77,6 @@ function plain(name: string, description: string, run: (args: CommonArgs) => voi
     run({ args }) {
       process.exitCode = withErrors(() => run(parseCommon(args)))
     },
-  })
-}
-
-async function runInteractive(common: CommonArgs, explicit: boolean): Promise<void> {
-  if (!isInteractiveTerminal()) {
-    if (explicit) {
-      console.error('❌ --interactive needs a terminal: stdin and stdout must both be TTYs.')
-      console.error('   Run a subcommand instead, e.g. `gh debt list`.')
-      process.exitCode = 1
-      return
-    }
-    // Not a terminal — fall back to plain output so pipes and CI keep working.
-    process.exitCode = withErrors(() => runList(common))
-    return
-  }
-
-  const { runTui } = await import('./tui/app.tsx')
-  runTui({
-    // The UI feeds every sidebar tab from one fetch, so it asks for more
-    // items than a single plain command would.
-    limit: Math.max(common.limit, 100),
-    staleDays: common.staleDays,
-    repo: common.repo,
   })
 }
 

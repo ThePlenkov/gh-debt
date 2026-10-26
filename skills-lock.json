@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "nx-devkit-biome": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-devkit-biome/SKILL.md",
+      "computedHash": "03dbe53703b0fc6360a7e03d6013d92d8bf6bebd2d91b99f7a15e657a01146cf"
+    },
+    "nx-devkit-oxlint": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-devkit-oxlint/SKILL.md",
+      "computedHash": "04aa1c69d1878d31e01fec9449da35b4b12f5162e2d18c66a227437eed4c59b4"
+    },
+    "nx-devkit-prepare-for-release": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-devkit-prepare-for-release/SKILL.md",
+      "computedHash": "db4a537a37f0356ce055b6619aff5bbc4288be84823dd578b9bb82c3bfcd5971"
+    },
+    "nx-devkit-tsdown": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-devkit-tsdown/SKILL.md",
+      "computedHash": "94e68d96484cd42a65cf5570fcd705521c198b0872e7b41c621d6207c9bb7ffe"
+    },
+    "nx-devkit-typescript": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-devkit-typescript/SKILL.md",
+      "computedHash": "0b51e6e8c6b0deff2f488eacf85408792fe9f1004a6a28ca82d9401620c591b8"
+    },
+    "nx-e2e-demo": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-e2e-demo/SKILL.md",
+      "computedHash": "cc56f26696a05a3d5d421f3706f3733a592fbba891064c19533acb811a893675"
+    },
+    "nx-skill": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-skill/SKILL.md",
+      "computedHash": "b0c06de8381d87bb41a78c03a251afa4b9988b6426949839ae669c28d77fc741"
+    },
+    "nx-vs-nx": {
+      "source": "nx-devkit/nx.ts",
+      "sourceType": "github",
+      "skillPath": "skills/nx-vs-nx/SKILL.md",
+      "computedHash": "223835ae3ffc5bc3b89f77a642db2a4aa59bcb0cda61838764be0a3193e0c859"
+    }
+  }
+}
