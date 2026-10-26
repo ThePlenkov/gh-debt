@@ -25,6 +25,48 @@ export const onPush = new Entry(ci, "on-push", {
   roots: ["typecheck", "test", "build"],
 })
 
+// ── One-time repository provisioning ─────────────────────────────
+// Everything in this pipeline is applied once, by hand, with an operator
+// token — it is the setup a repository needs before a gate means anything.
+//
+// It is a separate pipeline so that re-running the gate never depends on this
+// having been run, but it is *not* separate from verification: `repo-health`
+// carries `bootstrap-drift`, which re-checks every invariant here on every run.
+// Without that step, "applied once" silently becomes "never checked" — the
+// split would create a blind spot instead of removing one.
+//
+// These steps call the API and write no files, so they need no checkout.
+const bootstrap = new Pipeline(proj, "bootstrap", {
+  permissions: {
+    administration: "write",
+    metadata: "write",
+    "security-events": "write",
+    contents: "read",
+  },
+  bootstrap: "none",
+})
+
+// Require the CI check on the default branch, so a green `main` is enforced
+// rather than observed. `PUT` is idempotent: re-running sets the same rule.
+// The context must match the workflow's job `name` — rename the job in
+// `.github/workflows/ci.yml` and this goes stale.
+new ShellStep(bootstrap, "protect-main", {
+  command: "branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || { echo \"cannot resolve the default branch\"; exit 1; }; body='{\"required_status_checks\":{\"strict\":true,\"contexts\":[\"Typecheck, build, test\"]},\"enforce_admins\":false,\"required_pull_request_reviews\":{\"dismiss_stale_reviews\":true,\"require_code_owner_reviews\":false},\"restrictions\":null}'; printf '%s' \"$body\" | gh api --method PUT \"repos/{owner}/{repo}/branches/$branch/protection\" --input - || { echo \"could not set protection on $branch — the token needs administration:write\"; exit 1; }; echo \"required status checks set on $branch\"",
+  runtime: { shell: "sh" },
+})
+
+// Secret scanning with push protection, Dependabot security updates and
+// automated security fixes. Both calls are idempotent.
+new ShellStep(bootstrap, "security-features", {
+  command: "printf '%s' '{\"security_and_analysis\":{\"secret_scanning\":{\"status\":\"enabled\"},\"secret_scanning_push_protection\":{\"status\":\"enabled\"},\"dependabot_security_updates\":{\"status\":\"enabled\"}}}' | gh api --method PATCH repos/{owner}/{repo} --input - || { echo \"could not enable security features — the token needs administration:write\"; exit 1; }; printf '%s' '{\"enabled\":true}' | gh api --method PUT repos/{owner}/{repo}/automated-security-fixes --input - || { echo \"could not enable automated security fixes\"; exit 1; }; echo \"security features enabled\"",
+  runtime: { shell: "sh" },
+})
+
+export const bootstrapApply = new Entry(bootstrap, "apply", {
+  trigger: manual(),
+  roots: ["protect-main", "security-features"],
+})
+
 // ── GitHub-side repository health ──────────────────────────────────
 // These check the state of the repository on GitHub, not the code.
 const repoHealth = new Pipeline(proj, "repo-health", {
@@ -95,9 +137,17 @@ new ShellStep(repoHealth, "open-prs", {
   runtime: { shell: "sh" },
 })
 
+// The invariants the bootstrap pipeline applies, re-checked here on every run.
+// A failed query is drift, not a pass: a check that cannot be read is not green.
+// When this fails, run `bootstrap:apply`.
+new ShellStep(repoHealth, "bootstrap-drift", {
+  command: "fail=\"\"; branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || { echo \"cannot resolve the default branch\"; exit 1; }; gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.protected' 2>/dev/null | grep -qx true || fail=\"$fail main-unprotected\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning.status' 2>/dev/null | grep -qx enabled || fail=\"$fail secret-scanning-off\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning_push_protection.status' 2>/dev/null | grep -qx enabled || fail=\"$fail push-protection-off\"; gh api repos/{owner}/{repo}/automated-security-fixes --jq '.enabled' 2>/dev/null | grep -qx true || fail=\"$fail automated-fixes-off\"; gh api repos/{owner}/{repo}/contents/SECURITY.md --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-SECURITY.md\"; gh api repos/{owner}/{repo}/contents/.github/dependabot.yml --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-dependabot.yml\"; [ -z \"$fail\" ] || { echo \"repository setup drift — run bootstrap:apply:$fail\"; exit 1; }; echo \"repository setup verified\"",
+  runtime: { shell: "sh" },
+})
+
 export const repoHealthCheck = new Entry(repoHealth, "check", {
   trigger: manual(),
-  roots: ["main-green", "review-debt", "dependabot-alerts", "code-scanning", "secret-scanning", "stale-branches", "open-prs"],
+  roots: ["main-green", "bootstrap-drift", "review-debt", "dependabot-alerts", "code-scanning", "secret-scanning", "stale-branches", "open-prs"],
 })
 
 export default proj
