@@ -15,7 +15,6 @@ updates:
       dev:
         patterns:
           - "@types/*"
-          - typescript
           - tsx
           - tsdown
         exclude-patterns:
