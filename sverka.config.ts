@@ -58,7 +58,7 @@ new ShellStep(bootstrap, "protect-main", {
 // Secret scanning with push protection, Dependabot security updates and
 // automated security fixes. Both calls are idempotent.
 new ShellStep(bootstrap, "security-features", {
-  command: "printf '%s' '{\"security_and_analysis\":{\"secret_scanning\":{\"status\":\"enabled\"},\"secret_scanning_push_protection\":{\"status\":\"enabled\"},\"dependabot_security_updates\":{\"status\":\"enabled\"}}}' | gh api --method PATCH repos/{owner}/{repo} --input - || { echo \"could not enable security features — the token needs administration:write\"; exit 1; }; printf '%s' '{\"enabled\":true}' | gh api --method PUT repos/{owner}/{repo}/automated-security-fixes --input - || { echo \"could not enable automated security fixes\"; exit 1; }; echo \"security features enabled\"",
+  command: "printf '%s' '{\"security_and_analysis\":{\"secret_scanning\":{\"status\":\"enabled\"},\"secret_scanning_push_protection\":{\"status\":\"enabled\"},\"dependabot_security_updates\":{\"status\":\"enabled\"}}}' | gh api --method PATCH repos/{owner}/{repo} --input - || { echo \"could not enable security features — the token needs administration:write\"; exit 1; }; printf '' | gh api --method PUT repos/{owner}/{repo}/automated-security-fixes --input - || { echo \"could not enable automated security fixes\"; exit 1; }; echo \"security features enabled\"",
   runtime: { shell: "sh" },
 })
 
