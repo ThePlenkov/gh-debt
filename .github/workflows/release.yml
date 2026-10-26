@@ -39,25 +39,24 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: lts/*
           check-latest: true
-          registry-url: 'https://registry.npmjs.org'
-
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
       - name: Build
-        run: npx nx run-many -t build
+        run: ./node_modules/.bin/nx run-many -t build
 
       - name: Typecheck
-        run: npx nx run-many -t typecheck
+        run: ./node_modules/.bin/nx run-many -t typecheck
 
       - name: Test
-        run: npx nx run-many -t test
+        run: ./node_modules/.bin/nx run-many -t test
 
       # Provenance requires the OIDC flow, so there is no NODE_AUTH_TOKEN:
       # with a token in the environment npm skips OIDC and --provenance fails.
@@ -69,7 +68,9 @@ jobs:
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry-run }}
         run: |
-          npx nx run tools:release \
-            --configuration="${{ inputs.bump }}" \
-            --dryRun="${{ inputs.dry-run }}"
+          ./node_modules/.bin/nx run tools:release \
+            --configuration="$BUMP" \
+            --dryRun="$DRY_RUN"
