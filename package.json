@@ -1,7 +1,7 @@
 {
   "name": "gh-debt",
   "version": "0.1.4",
-  "description": "GitHub CLI extension for tracking and managing technical debt — PRs awaiting review, assigned issues, and stale items across all your repositories, prioritized by date",
+  "description": "GitHub CLI extension for tracking and managing technical debt \u2014 PRs awaiting review, assigned issues, and stale items across all your repositories, prioritized by date",
   "license": "MIT",
   "type": "module",
   "packageManager": "npm@11.20.0",
@@ -63,5 +63,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "overrides": {
+    "undici": ">=7.30.1"
   }
 }
