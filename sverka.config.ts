@@ -62,9 +62,18 @@ new ShellStep(bootstrap, "security-features", {
   runtime: { shell: "sh" },
 })
 
+// Enable GitHub's default (managed) CodeQL code scanning, but only when no
+// code scanning is already configured — never overwrite a custom CodeQL
+// workflow or an already-configured default setup. Idempotent.
+new ShellStep(bootstrap, "enable-code-scanning", {
+  command: "state=$(gh api repos/{owner}/{repo}/code-scanning/default-setup --jq '.state' 2>/dev/null); if [ \"$state\" = \"configured\" ]; then echo \"code scanning already configured (default setup)\"; elif gh api repos/{owner}/{repo}/contents/.github/workflows/codeql.yml >/dev/null 2>&1 || gh api repos/{owner}/{repo}/contents/.github/workflows/codeql-analysis.yml >/dev/null 2>&1; then echo \"custom CodeQL workflow present — skipping default setup\"; else printf '{\"state\":\"configured\"}' | gh api --method PATCH repos/{owner}/{repo}/code-scanning/default-setup --input - || { echo \"could not enable code scanning — the token needs administration:write\"; exit 1; }; echo \"code scanning enabled (default setup)\"; fi",
+  runtime: { shell: "sh" },
+})
+
+
 export const bootstrapApply = new Entry(bootstrap, "apply", {
   trigger: manual(),
-  roots: ["protect-main", "security-features"],
+  roots: ["protect-main", "security-features", "enable-code-scanning"],
 })
 
 // ── GitHub-side repository health ──────────────────────────────────
@@ -141,7 +150,7 @@ new ShellStep(repoHealth, "open-prs", {
 // A failed query is drift, not a pass: a check that cannot be read is not green.
 // When this fails, run `bootstrap:apply`.
 new ShellStep(repoHealth, "bootstrap-drift", {
-  command: "fail=\"\"; branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || { echo \"cannot resolve the default branch\"; exit 1; }; gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.protected' 2>/dev/null | grep -qx true || fail=\"$fail main-unprotected\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning.status' 2>/dev/null | grep -qx enabled || fail=\"$fail secret-scanning-off\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning_push_protection.status' 2>/dev/null | grep -qx enabled || fail=\"$fail push-protection-off\"; gh api repos/{owner}/{repo}/automated-security-fixes --jq '.enabled' 2>/dev/null | grep -qx true || fail=\"$fail automated-fixes-off\"; gh api repos/{owner}/{repo}/contents/SECURITY.md --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-SECURITY.md\"; gh api repos/{owner}/{repo}/contents/.github/dependabot.yml --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-dependabot.yml\"; [ -z \"$fail\" ] || { echo \"repository setup drift — run bootstrap:apply:$fail\"; exit 1; }; echo \"repository setup verified\"",
+  command: "fail=\"\"; branch=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') || { echo \"cannot resolve the default branch\"; exit 1; }; gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.protected' 2>/dev/null | grep -qx true || fail=\"$fail main-unprotected\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning.status' 2>/dev/null | grep -qx enabled || fail=\"$fail secret-scanning-off\"; gh api repos/{owner}/{repo} --jq '.security_and_analysis.secret_scanning_push_protection.status' 2>/dev/null | grep -qx enabled || fail=\"$fail push-protection-off\"; gh api repos/{owner}/{repo}/automated-security-fixes --jq '.enabled' 2>/dev/null | grep -qx true || fail=\"$fail automated-fixes-off\"; gh api repos/{owner}/{repo}/contents/SECURITY.md --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-SECURITY.md\"; gh api repos/{owner}/{repo}/contents/.github/dependabot.yml --jq '.name' >/dev/null 2>&1 || fail=\"$fail no-dependabot.yml\"; cs_state=$(gh api repos/{owner}/{repo}/code-scanning/default-setup --jq '.state' 2>/dev/null); if [ \"$cs_state\" = \"configured\" ]; then :; elif gh api repos/{owner}/{repo}/contents/.github/workflows/codeql.yml >/dev/null 2>&1 || gh api repos/{owner}/{repo}/contents/.github/workflows/codeql-analysis.yml >/dev/null 2>&1; then :; else fail=\"$fail code-scanning-off\"; fi; [ -z \"$fail\" ] || { echo \"repository setup drift — run bootstrap:apply:$fail\"; exit 1; }; echo \"repository setup verified\"",
   runtime: { shell: "sh" },
 })
 
