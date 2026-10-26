@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Runtime and build dependencies. Pinned to the ranges in package.json.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      nx:
+        patterns:
+          - "@nx-devkit/*"
+          - "@sverka/*"
+          - nx
+      dev:
+        patterns:
+          - "@types/*"
+          - typescript
+          - tsx
+          - tsdown
+        exclude-patterns:
+          - "typescript"
+
+  # Keep the pinned actions in CI current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
